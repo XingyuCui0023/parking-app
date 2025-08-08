@@ -6,9 +6,9 @@ import altair as alt
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
+from lib.db import get_engine
+engine = get_engine()
+
 
 st.title("Car Ownership by State (2016–2020)")
 st.caption("Compare Victoria with another state.")

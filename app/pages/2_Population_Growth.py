@@ -6,9 +6,9 @@ import altair as alt
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
+from lib.db import get_engine
+engine = get_engine()
+
 
 st.title("Population Growth in Victoria (2001–2021)")
 st.caption("Drag the range to focus on specific years.")

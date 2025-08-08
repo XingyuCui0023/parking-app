@@ -8,9 +8,9 @@ from streamlit_folium import st_folium
 import folium
 
 # ---------- 1) 连接数据库 ----------
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
+from lib.db import get_engine
+engine = get_engine()
+
 
 st.set_page_config(page_title="Parking Area Search", layout="wide")
 st.title("Parking Area Search")
