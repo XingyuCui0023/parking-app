@@ -12,6 +12,7 @@ def _build_db_url() -> str:
     2) 项目根目录的 .env（显式加载）
     3) 环境变量（兜底）
     并统一追加 sslmode=require；兼容 postgres:// 前缀。
+    如果没有找到数据库URL，返回None以启用演示模式。
     """
     # 1) 试图从 secrets 读取（本地没有 secrets.toml 时会抛异常，所以 try）
     url = None
@@ -33,11 +34,9 @@ def _build_db_url() -> str:
     if not url:
         url = os.getenv("DATABASE_URL")
 
-    if not url:
-        raise RuntimeError(
-            "DATABASE_URL is not set. Put it in project_root/.env for local run "
-            "or in Streamlit Secrets for cloud."
-        )
+    # 如果仍然没有URL，返回None以启用演示模式
+    if not url or url.strip() == "":
+        return None
 
     # 兼容 postgres://
     if url.startswith("postgres://"):
@@ -54,5 +53,8 @@ _engine = None
 def get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(_build_db_url(), pool_pre_ping=True)
+        db_url = _build_db_url()
+        if db_url is None:
+            raise RuntimeError("No database URL configured - running in demo mode")
+        _engine = create_engine(db_url, pool_pre_ping=True)
     return _engine
