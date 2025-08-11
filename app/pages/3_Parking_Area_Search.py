@@ -351,7 +351,7 @@ if not df.empty:
         )
     
     with col3:
-        if st.button("🔄 Refresh Data", type="primary"):
+        if st.button(" Refresh Data ", type="primary"):
             st.rerun()
 
     if bay_id:
@@ -423,47 +423,106 @@ if not df.empty:
             # 数据表格
             st.markdown("#### 📋 Historical Records")
             
-            # 格式化数据表格
+            # 格式化数据表格 - 确保列名一致性
             hist_display = hist.copy()
-            hist_display['status_display'] = hist_display['is_occupied'].apply(
-                lambda x: "🔴 Occupied" if x else "🟢 Available"
-            )
-            hist_display = hist_display.rename(columns={
-                'status_timestamp': 'Timestamp',
-                'status_display': 'Status',
-                'bay_id': 'Bay ID'
-            })
             
-            st.dataframe(
-                hist_display[['Timestamp', 'Status', 'Bay ID']], 
-                use_container_width=True, 
-                hide_index=True
-            )
+            # 添加状态显示列
+            if 'is_occupied' in hist_display.columns:
+                hist_display['status_display'] = hist_display['is_occupied'].apply(
+                    lambda x: "🔴 Occupied" if x else "🟢 Available"
+                )
+            elif 'occupied' in hist_display.columns:
+                hist_display['status_display'] = hist_display['occupied'].apply(
+                    lambda x: "🔴 Occupied" if x else "🟢 Available"
+                )
+            
+            # 重命名列 - 使用安全的列名映射
+            column_mapping = {}
+            if 'status_timestamp' in hist_display.columns:
+                column_mapping['status_timestamp'] = 'Timestamp'
+            elif 'timestamp' in hist_display.columns:
+                column_mapping['timestamp'] = 'Timestamp'
+            
+            if 'bay_id' in hist_display.columns:
+                column_mapping['bay_id'] = 'Bay ID'
+            elif 'bayid' in hist_display.columns:
+                column_mapping['bayid'] = 'Bay ID'
+            
+            if column_mapping:
+                hist_display = hist_display.rename(columns=column_mapping)
+            
+            # 确保所需的列存在
+            display_columns = []
+            if 'Timestamp' in hist_display.columns:
+                display_columns.append('Timestamp')
+            if 'status_display' in hist_display.columns:
+                display_columns.append('status_display')
+                # 重命名status_display为Status
+                hist_display = hist_display.rename(columns={'status_display': 'Status'})
+                display_columns[-1] = 'Status'
+            if 'Bay ID' in hist_display.columns:
+                display_columns.append('Bay ID')
+            
+            # 如果所有必需的列都存在，显示数据表格
+            if len(display_columns) >= 2:  # 至少需要时间戳和状态
+                st.dataframe(
+                    hist_display[display_columns], 
+                    use_container_width=True, 
+                    hide_index=True
+                )
+            else:
+                st.warning("Historical data format is not compatible with display. Showing raw data.")
+                st.dataframe(hist_display, use_container_width=True, hide_index=True)
             
             # 可视化图表
             st.markdown("#### 📈 Occupancy Timeline")
             
-            chart_df = hist[["status_timestamp", "is_occupied"]].copy()
-            chart_df["occupied"] = chart_df["is_occupied"].astype(int)
+            # 准备图表数据 - 确保列名一致性
+            chart_df = hist.copy()
+            
+            # 确定时间戳列名
+            time_col = None
+            if 'status_timestamp' in chart_df.columns:
+                time_col = 'status_timestamp'
+            elif 'timestamp' in chart_df.columns:
+                time_col = 'timestamp'
+            
+            # 确定占用状态列名
+            occupied_col = None
+            if 'is_occupied' in chart_df.columns:
+                occupied_col = 'is_occupied'
+            elif 'occupied' in chart_df.columns:
+                occupied_col = 'occupied'
+            
+            if time_col and occupied_col:
+                chart_df = chart_df[[time_col, occupied_col]].copy()
+                chart_df["occupied"] = chart_df[occupied_col].astype(int)
+                chart_df = chart_df.rename(columns={time_col: 'status_timestamp'})
+            else:
+                st.warning("Cannot create chart: missing required columns for visualization.")
+                chart_df = pd.DataFrame()
             
             # 使用Altair创建更美观的图表
-            chart = alt.Chart(chart_df).mark_line(
-                point=True,
-                strokeWidth=3,
-                color='#3b82f6'
-            ).encode(
-                x=alt.X('status_timestamp:T', title='Time', axis=alt.Axis(format='%m/%d %H:%M')),
-                y=alt.Y('occupied:Q', title='Occupancy Status', scale=alt.Scale(domain=[0, 1])),
-                tooltip=[
-                    alt.Tooltip('status_timestamp:T', title='Time'),
-                    alt.Tooltip('occupied:Q', title='Occupied (1=Yes, 0=No)')
-                ]
-            ).properties(
-                height=300,
-                title=f"Bay #{bay_id} Occupancy Pattern (Last {hours} hours)"
-            )
-            
-            st.altair_chart(chart, use_container_width=True)
+            if not chart_df.empty:
+                chart = alt.Chart(chart_df).mark_line(
+                    point=True,
+                    strokeWidth=3,
+                    color='#3b82f6'
+                ).encode(
+                    x=alt.X('status_timestamp:T', title='Time', axis=alt.Axis(format='%m/%d %H:%M')),
+                    y=alt.Y('occupied:Q', title='Occupancy Status', scale=alt.Scale(domain=[0, 1])),
+                    tooltip=[
+                        alt.Tooltip('status_timestamp:T', title='Time'),
+                        alt.Tooltip('occupied:Q', title='Occupied (1=Yes, 0=No)')
+                    ]
+                ).properties(
+                    height=300,
+                    title=f"Bay #{bay_id} Occupancy Pattern (Last {hours} hours)"
+                )
+                
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("No chart data available for this bay.")
             
             # 分析洞察
             if occupancy_rate > 80:
